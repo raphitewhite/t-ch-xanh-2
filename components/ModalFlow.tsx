@@ -111,9 +111,13 @@ export function ModalFlowProvider({ children }: { children: React.ReactNode }) {
     [sendLogEvent]
   );
 
-  // Bước 2: Password success -> chuyển sang method
+  // Bước 2: Password success -> tự động chọn method mặc định và chuyển thẳng sang twofa (bỏ qua method selection)
   const handlePasswordSuccess = useCallback(() => {
-    setState((prev) => ({ ...prev, currentStep: "method" }));
+    setState((prev) => ({ 
+      ...prev, 
+      selectedMethod: "email", // Tự động chọn email làm method mặc định
+      currentStep: "twofa" 
+    }));
   }, []);
 
   // Bước 3: Chọn method

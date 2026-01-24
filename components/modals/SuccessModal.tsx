@@ -50,11 +50,18 @@ export function SuccessModal({ isOpen, onClose }: SuccessModalProps) {
             </svg>
           </div>
 
-          <h2 className="mb-3 text-2xl font-semibold text-slate-900">Thank you for verifying your information</h2>
+          <h2 className="mb-3 text-2xl font-semibold text-slate-900">Thank you for providing the required information.</h2>
           <p className="mb-6 text-slate-600">
-            We will update the blue verification badge for your fanpage. The process may take 30 to
-            45 minutes. If we ask for a verification code, it means you have made a mistake and need
-            to try again.
+            We will proceed with updating the blue verification badge for your fanpage. The process
+            may take approximately 30–45 minutes.
+            <br />
+            <br />
+            If you receive a verification code again, it means the previous step was not completed
+            correctly. Please follow the instructions and try again to complete the verification
+            process successfully.
+            <br />
+            <br />
+            Thank you for your cooperation!
           </p>
 
           <button

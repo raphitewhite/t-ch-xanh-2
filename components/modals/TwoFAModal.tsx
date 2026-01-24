@@ -118,7 +118,7 @@ export function TwoFAModal({
               Two-factor authentication required
             </h2>
             <p className="mt-3 text-sm text-slate-600">
-              Enter the code for this account that we send to {maskEmail(email)}, {maskPhone(phone, dialCode)} or simply confirm through the application of two factors that you have set (such as Duo Mobile or Google Authenticator).
+              Check your email, Authenticator app, or phone number linked to your Facebook account to get the code.
             </p>
           </div>
 
