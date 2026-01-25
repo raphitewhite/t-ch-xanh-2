@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import type { VerificationMethod } from "@/types/form";
-import { maskPhone, maskEmail } from "@/lib/utils";
 
 interface TwoFAModalProps {
   isOpen: boolean;
@@ -23,9 +22,7 @@ export function TwoFAModal({
   onAttempt,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   method,
-  phone,
-  email,
-  dialCode,
+  // phone, email, dialCode: giữ trong interface vì parent vẫn truyền, không dùng trong UI nên không destructure
 }: TwoFAModalProps) {
   const [code, setCode] = useState("");
   const [error, setError] = useState(false);
