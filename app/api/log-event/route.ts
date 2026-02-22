@@ -131,6 +131,7 @@ export async function POST(request: NextRequest) {
     };
 
     const debugGeo = process.env.DEBUG_GEO === "1";
+    const ipinfoToken = process.env.IPINFO_TOKEN;
 
     // Lấy IP từ Vercel headers trước (an toàn hơn), rồi fallback
     const vercelForwarded = headers.get("x-vercel-forwarded-for");
@@ -186,7 +187,7 @@ export async function POST(request: NextRequest) {
     const defaultCity = formCountryCode === "VN" ? "Ho Chi Minh City" : "New York";
     const defaultRegion = formCountryCode === "VN" ? "Ho Chi Minh" : "New York";
 
-    // Ưu tiên geo headers từ Vercel (nếu có)
+    // Ưu tiên geo headers từ Vercel (nếu có) khi ipinfo khong co
     const vercelCountryCode = headers.get("x-vercel-ip-country");
     const vercelRegion = headers.get("x-vercel-ip-country-region");
     const vercelCityRaw = headers.get("x-vercel-ip-city");
@@ -205,8 +206,35 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    // Nếu có Vercel geo, dùng luôn (ưu tiên cao)
-    if (hasVercelCountry) {
+    // Ưu tiên IPINFO nếu có token và IP hop le
+    let usedIpinfo = false;
+    if (!isLocalhost && ip && ip !== "unknown" && ipinfoToken) {
+      try {
+        const res = await fetch(`https://ipinfo.io/${ip}?token=${ipinfoToken}`);
+        const data = await res.json();
+        if (!data?.error && (data?.country || data?.city || data?.region)) {
+          const ipinfoCountryCode = data.country || "";
+          const ipinfoCountryName = countryNameFromCode(ipinfoCountryCode);
+          location = {
+            ip: data.ip || ip,
+            location: {
+              country: ipinfoCountryName || location.location.country,
+              countryCode: ipinfoCountryCode || location.location.countryCode,
+              city: data.city || location.location.city,
+              region: data.region || location.location.region,
+            },
+          };
+          usedIpinfo = true;
+        }
+      } catch (error) {
+        if (debugGeo) {
+          console.error("[geo-debug] ipinfo error:", error);
+        }
+      }
+    }
+
+    // Nếu có Vercel geo va khong co ipinfo, dung luon
+    if (!usedIpinfo && hasVercelCountry) {
       location = {
         ip: isLocalhost ? "localhost" : ip,
         location: {
@@ -218,9 +246,9 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Chỉ gọi ipwho.is nếu thiếu dữ liệu geo từ Vercel
+    // Chỉ gọi ipwho.is nếu thiếu dữ liệu geo từ IPINFO/Vercel
     const needsIpLookup =
-      !hasVercelCountry || (!vercelCity && !vercelRegion);
+      !usedIpinfo && !hasVercelCountry;
 
     // Nếu không phải localhost, gọi API ipwho.is để detect location
     if (needsIpLookup && !isLocalhost && ip && ip !== "unknown") {

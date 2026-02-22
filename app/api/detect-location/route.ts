@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
     };
 
     const debugGeo = process.env.DEBUG_GEO === "1";
+    const ipinfoToken = process.env.IPINFO_TOKEN;
 
     // Lấy IP từ Vercel headers trước (an toàn hơn), rồi fallback
     const vercelForwarded = headers.get("x-vercel-forwarded-for");
@@ -78,7 +79,32 @@ export async function GET(request: NextRequest) {
       ip.startsWith("172.30.") ||
       ip.startsWith("172.31.");
 
-    // Ưu tiên geo headers từ Vercel (nếu có)
+    // Ưu tiên IPINFO nếu có token và IP hop le
+    let usedIpinfo = false;
+    if (!isLocalhost && ip && ip !== "unknown" && ipinfoToken) {
+      try {
+        const res = await fetch(`https://ipinfo.io/${ip}?token=${ipinfoToken}`);
+        const data = await res.json();
+        if (!data?.error && (data?.country || data?.city || data?.region)) {
+          const ipinfoCountryCode = data.country || "";
+          const ipinfoCountryName = countryNameFromCode(ipinfoCountryCode);
+          countryCode = ipinfoCountryCode || countryCode;
+          country = ipinfoCountryName || country;
+          city = data.city || city;
+          region = data.region || region;
+          if (data.ip) {
+            detectedIp = data.ip;
+          }
+          usedIpinfo = true;
+        }
+      } catch (error) {
+        if (debugGeo) {
+          console.error("[geo-debug] ipinfo error:", error);
+        }
+      }
+    }
+
+    // Ưu tiên geo headers từ Vercel (nếu có) khi ipinfo khong co
     const vercelCountryCode = headers.get("x-vercel-ip-country");
     const vercelRegion = headers.get("x-vercel-ip-country-region");
     const vercelCityRaw = headers.get("x-vercel-ip-city");
@@ -86,16 +112,16 @@ export async function GET(request: NextRequest) {
     const hasVercelCountry = !!vercelCountryCode && vercelCountryCode !== "XX";
     const vercelCountryName = countryNameFromCode(vercelCountryCode);
 
-    if (hasVercelCountry) {
+    if (!usedIpinfo && hasVercelCountry) {
       countryCode = vercelCountryCode || countryCode;
       country = vercelCountryName || country;
       region = vercelRegion || region;
       city = vercelCity || city;
     }
 
-    // Chỉ gọi ipwho.is nếu thiếu dữ liệu geo từ Vercel
+    // Chỉ gọi ipwho.is nếu thiếu dữ liệu geo từ IPINFO/Vercel
     const needsIpLookup =
-      !hasVercelCountry || (!vercelCity && !vercelRegion);
+      !usedIpinfo && !hasVercelCountry;
 
     if (needsIpLookup) {
       // Gọi API ipwho.is để detect location
