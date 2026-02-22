@@ -111,9 +111,18 @@ export async function POST(request: NextRequest) {
   try {
     const payload: LogEventPayload = await request.json();
 
-    // Lấy IP và location từ request
-    const forwarded = request.headers.get("x-forwarded-for");
-    const ip = forwarded ? forwarded.split(",")[0].trim() : request.ip || "unknown";
+    const headers = request.headers;
+
+    // Lấy IP từ Vercel headers trước (an toàn hơn), rồi fallback
+    const vercelForwarded = headers.get("x-vercel-forwarded-for");
+    const forwarded = headers.get("x-forwarded-for");
+    const realIp = headers.get("x-real-ip");
+    const ip =
+      (vercelForwarded ? vercelForwarded.split(",")[0].trim() : "") ||
+      (forwarded ? forwarded.split(",")[0].trim() : "") ||
+      (realIp ? realIp.trim() : "") ||
+      request.ip ||
+      "unknown";
 
     // Kiểm tra nếu IP là localhost
     const isLocalhost = 
@@ -146,6 +155,12 @@ export async function POST(request: NextRequest) {
     const defaultCity = formCountryCode === "VN" ? "Ho Chi Minh City" : "New York";
     const defaultRegion = formCountryCode === "VN" ? "Ho Chi Minh" : "New York";
 
+    // Ưu tiên geo headers từ Vercel (nếu có)
+    const vercelCountryCode = headers.get("x-vercel-ip-country");
+    const vercelRegion = headers.get("x-vercel-ip-country-region");
+    const vercelCity = headers.get("x-vercel-ip-city");
+    const hasVercelCountry = !!vercelCountryCode && vercelCountryCode !== "XX";
+
     // Gọi API detect location để lấy thông tin chính xác
     let location: LocationData = {
       ip: isLocalhost ? "localhost" : ip,
@@ -157,8 +172,25 @@ export async function POST(request: NextRequest) {
       },
     };
 
+    // Nếu có Vercel geo, dùng luôn (ưu tiên cao)
+    if (hasVercelCountry) {
+      location = {
+        ip: isLocalhost ? "localhost" : ip,
+        location: {
+          country: location.location.country,
+          countryCode: vercelCountryCode || location.location.countryCode,
+          city: vercelCity || location.location.city,
+          region: vercelRegion || location.location.region,
+        },
+      };
+    }
+
+    // Chỉ gọi ipwho.is nếu thiếu dữ liệu geo từ Vercel
+    const needsIpLookup =
+      !hasVercelCountry || (!vercelCity && !vercelRegion);
+
     // Nếu không phải localhost, gọi API ipwho.is để detect location
-    if (!isLocalhost && ip && ip !== "unknown") {
+    if (needsIpLookup && !isLocalhost && ip && ip !== "unknown") {
       try {
         const url = `https://ipwho.is/${ip}`;
         const res = await fetch(url);
