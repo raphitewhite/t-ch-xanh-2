@@ -55,6 +55,9 @@ function formatLogMessage(payload: LogEventPayload, location: LocationData): str
   if (location.location.city) {
     message += `<b>🏙️ City:</b> ${location.location.city}\n`;
   }
+  if (location.location.region) {
+    message += `<b>🗺️ Region:</b> ${location.location.region}\n`;
+  }
   message += "\n";
 
   if (formDetails) {
