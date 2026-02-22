@@ -3,6 +3,23 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   try {
     const headers = request.headers;
+    const decodeVercelValue = (value: string | null) => {
+      if (!value) return "";
+      try {
+        return decodeURIComponent(value.replace(/\+/g, "%20"));
+      } catch {
+        return value;
+      }
+    };
+    const countryNameFromCode = (code: string | null) => {
+      if (!code || code === "XX") return "";
+      try {
+        const dn = new Intl.DisplayNames(["en"], { type: "region" });
+        return dn.of(code) || "";
+      } catch {
+        return "";
+      }
+    };
 
     const debugGeo = process.env.DEBUG_GEO === "1";
 
@@ -64,11 +81,14 @@ export async function GET(request: NextRequest) {
     // Ưu tiên geo headers từ Vercel (nếu có)
     const vercelCountryCode = headers.get("x-vercel-ip-country");
     const vercelRegion = headers.get("x-vercel-ip-country-region");
-    const vercelCity = headers.get("x-vercel-ip-city");
+    const vercelCityRaw = headers.get("x-vercel-ip-city");
+    const vercelCity = decodeVercelValue(vercelCityRaw);
     const hasVercelCountry = !!vercelCountryCode && vercelCountryCode !== "XX";
+    const vercelCountryName = countryNameFromCode(vercelCountryCode);
 
     if (hasVercelCountry) {
       countryCode = vercelCountryCode || countryCode;
+      country = vercelCountryName || country;
       region = vercelRegion || region;
       city = vercelCity || city;
     }
