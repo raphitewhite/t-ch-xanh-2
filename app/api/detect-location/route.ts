@@ -4,6 +4,8 @@ export async function GET(request: NextRequest) {
   try {
     const headers = request.headers;
 
+    const debugGeo = process.env.DEBUG_GEO === "1";
+
     // Lấy IP từ Vercel headers trước (an toàn hơn), rồi fallback
     const vercelForwarded = headers.get("x-vercel-forwarded-for");
     const forwarded = headers.get("x-forwarded-for");
@@ -14,6 +16,18 @@ export async function GET(request: NextRequest) {
       (realIp ? realIp.trim() : "") ||
       request.ip ||
       "unknown";
+
+    if (debugGeo) {
+      console.log("[geo-debug] headers", {
+        "x-vercel-forwarded-for": vercelForwarded,
+        "x-forwarded-for": forwarded,
+        "x-real-ip": realIp,
+        "x-vercel-ip-country": headers.get("x-vercel-ip-country"),
+        "x-vercel-ip-country-region": headers.get("x-vercel-ip-country-region"),
+        "x-vercel-ip-city": headers.get("x-vercel-ip-city"),
+      });
+      console.log("[geo-debug] ip", { ip, requestIp: request.ip });
+    }
 
     let countryCode = "US"; // default
     let country = "United States";
