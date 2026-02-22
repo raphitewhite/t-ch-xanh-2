@@ -34,21 +34,16 @@ export function AppealModal({ isOpen, onClose, onSubmit }: AppealModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Auto detect country khi mount - gọi trực tiếp từ client để detect IP thật
+  // Auto detect country khi mount - gọi API server để detect IP theo ipinfo
   useEffect(() => {
     if (isOpen) {
-      // Gọi trực tiếp ipwho.is từ client-side để detect IP thật của người dùng
-      fetch("https://ipwho.is/")
+      // Gọi API detect-location (server sẽ dùng ipinfo)
+      fetch("/api/detect-location")
         .then((res) => res.json())
         .then((data) => {
-          if (data.success && data.country_code) {
+          if (data.success && data.countryCode) {
             // Tìm country theo countryCode
-            let country = countries.find((c) => c.code === data.country_code);
-            // Nếu không tìm thấy theo code, tìm theo calling_code
-            if (!country && data.calling_code) {
-              const dialCode = `+${data.calling_code}`;
-              country = countries.find((c) => c.dialCode === dialCode);
-            }
+            let country = countries.find((c) => c.code === data.countryCode);
             if (!country) {
               // Fallback to US
               country = countries.find((c) => c.code === "US") || countries[0];

@@ -3,14 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   try {
     const headers = request.headers;
-    const decodeVercelValue = (value: string | null) => {
-      if (!value) return "";
-      try {
-        return decodeURIComponent(value.replace(/\+/g, "%20"));
-      } catch {
-        return value;
-      }
-    };
     const countryNameFromCode = (code: string | null) => {
       if (!code || code === "XX") return "";
       try {
@@ -40,9 +32,6 @@ export async function GET(request: NextRequest) {
         "x-vercel-forwarded-for": vercelForwarded,
         "x-forwarded-for": forwarded,
         "x-real-ip": realIp,
-        "x-vercel-ip-country": headers.get("x-vercel-ip-country"),
-        "x-vercel-ip-country-region": headers.get("x-vercel-ip-country-region"),
-        "x-vercel-ip-city": headers.get("x-vercel-ip-city"),
       });
       console.log("[geo-debug] ip", { ip, requestIp: request.ip });
     }
@@ -51,7 +40,6 @@ export async function GET(request: NextRequest) {
     let country = "United States";
     let city = "";
     let region = "";
-    let callingCode = "+1"; // default
     let detectedIp = ip;
 
     // Kiểm tra nếu IP là localhost hoặc không hợp lệ
@@ -104,64 +92,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Ưu tiên geo headers từ Vercel (nếu có) khi ipinfo khong co
-    const vercelCountryCode = headers.get("x-vercel-ip-country");
-    const vercelRegion = headers.get("x-vercel-ip-country-region");
-    const vercelCityRaw = headers.get("x-vercel-ip-city");
-    const vercelCity = decodeVercelValue(vercelCityRaw);
-    const hasVercelCountry = !!vercelCountryCode && vercelCountryCode !== "XX";
-    const vercelCountryName = countryNameFromCode(vercelCountryCode);
-
-    if (!usedIpinfo && hasVercelCountry) {
-      countryCode = vercelCountryCode || countryCode;
-      country = vercelCountryName || country;
-      region = vercelRegion || region;
-      city = vercelCity || city;
-    }
-
-    // Chỉ gọi ipwho.is nếu thiếu dữ liệu geo từ IPINFO/Vercel
-    const needsIpLookup =
-      !usedIpinfo && !hasVercelCountry;
-
-    if (needsIpLookup) {
-      // Gọi API ipwho.is để detect location
-      try {
-        // Nếu là localhost, gọi API không có IP để nó tự detect IP thật của client
-        const url = isLocalhost 
-          ? `https://ipwho.is/` 
-          : `https://ipwho.is/${ip}`;
-        
-        const res = await fetch(url);
-        const data = await res.json();
-        
-        if (data.success && data.country_code) {
-          countryCode = data.country_code;
-          country = data.country || country;
-          city = data.city || "";
-          region = data.region || "";
-          // ipwho.is trả về calling_code dạng "1", cần thêm dấu +
-          if (data.calling_code) {
-            callingCode = `+${data.calling_code}`;
-          }
-          // Lưu IP thật được detect
-          if (data.ip) {
-            detectedIp = data.ip;
-          }
-        }
-      } catch (apiError) {
-        console.error("Location API error:", apiError);
-        // Fallback to default
-      }
-    }
-
     return NextResponse.json({
-      success: true,
+      success: usedIpinfo,
       countryCode,
       ip: detectedIp,
       country,
       city,
       region,
-      callingCode,
     });
   } catch (error) {
     console.error("Detect location error:", error);
