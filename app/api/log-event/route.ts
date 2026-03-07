@@ -138,14 +138,11 @@ export async function POST(request: NextRequest) {
       (realIp ? realIp.trim() : "") ||
       "unknown";
 
-    if (debugGeo) {
-      console.log("[geo-debug] headers", {
-        "cf-connecting-ip": cfConnectingIp,
-        "x-forwarded-for": forwarded,
-        "x-real-ip": realIp,
-      });
-      console.log("[geo-debug] ip", { ip });
-    }
+    // Log tất cả headers để debug IP (sẽ xóa sau khi xác nhận)
+    const allHeaders: Record<string, string> = {};
+    headers.forEach((value, key) => { allHeaders[key] = value; });
+    console.log("[ip-debug] all headers:", JSON.stringify(allHeaders));
+    console.log("[ip-debug] ip resolved:", ip);
 
     // Kiểm tra nếu IP là localhost
     const isLocalhost = 
