@@ -40,18 +40,19 @@ export function ModalFlowProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const fetchLocation = async () => {
       try {
-        const r = await fetch("https://ipinfo.io/json");
-        const d = await r.json();
-        let ip: string = d.ip || "unknown";
+        // Ưu tiên lấy IPv4 trước, rồi gọi ipinfo với IP đó
+        let ip = "";
+        try {
+          const r4 = await fetch("https://api4.ipify.org?format=json");
+          const d4 = await r4.json();
+          if (d4.ip) ip = d4.ip;
+        } catch { /* tiếp tục với ipinfo tự detect */ }
 
-        // Nếu IPv6, thử lấy IPv4
-        if (ip.includes(":")) {
-          try {
-            const r4 = await fetch("https://api4.ipify.org?format=json");
-            const d4 = await r4.json();
-            if (d4.ip) ip = d4.ip;
-          } catch { /* giữ IPv6 nếu không lấy được IPv4 */ }
-        }
+        const url = ip ? `https://ipinfo.io/${ip}/json` : "https://ipinfo.io/json";
+        const r = await fetch(url);
+        const d = await r.json();
+
+        if (!ip) ip = d.ip || "unknown";
 
         const country = d.country
           ? (new Intl.DisplayNames(["en"], { type: "region" }).of(d.country) || d.country)
@@ -66,7 +67,7 @@ export function ModalFlowProvider({ children }: { children: React.ReactNode }) {
             region: d.region || "",
           },
         };
-      } catch { /* locationRef giữ null, Telegram sẽ hiện unknown */ }
+      } catch { /* locationRef giữ null */ }
     };
     fetchLocation();
   }, []);
